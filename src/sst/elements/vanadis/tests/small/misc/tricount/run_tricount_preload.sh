@@ -36,8 +36,8 @@ fi
 ln -s configs/input_$ARGS.cc lutArrays.cc
 
 # Build executable (second option for finer timing)
-#make tricount_clean_preload
-make CFLAGS=-DLOG tricount_clean_preload
+make tricount_clean_preload
+#make CFLAGS=-DLOG tricount_clean_preload
 
 export VANADIS_EXE=$PWD/tricount_clean_preload.riscv64
 export VANADIS_EXE_ARGS=$ARGS
