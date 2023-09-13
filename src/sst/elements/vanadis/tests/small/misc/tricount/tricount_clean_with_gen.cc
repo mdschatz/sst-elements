@@ -3,6 +3,10 @@
 #include <random>
 #include <algorithm>
 
+#ifdef LOG
+#include <chrono>
+#endif
+
 int main(int argc, char *argv[]) {
   uint64_t i, j;
   uint64_t tmp, src, dst, edge = 0, tct;
@@ -27,6 +31,12 @@ int main(int argc, char *argv[]) {
   std::fill(index, index + num_vertices + 1, 0);
 
   uint64_t *edges = new uint64_t[num_edges];
+
+#ifdef LOG
+  // Timer values
+  std::chrono::high_resolution_clock::time_point start_vertex, stop_vertex;
+  start_vertex = std::chrono::high_resolution_clock::now();
+#endif
   for (i = 0; i < num_edges; i++) {
 
     // Generate new edge src and dst ids
@@ -73,9 +83,14 @@ int main(int argc, char *argv[]) {
       edge++;
     }
   }
+#ifdef LOG
+  stop_vertex = std::chrono::high_resolution_clock::now();
+#endif
 
+#ifdef LOG
   printf("num_verticies %d\n", num_vertices);
   printf("num_edges %d\n",  edge);
+#endif
 
   // Graph generation is above - below is the counting and depends on having
   // the list of edges (edges), the index into the edges (index), and the
@@ -115,7 +130,12 @@ int main(int argc, char *argv[]) {
       // End TASK
     }
   }
+#ifdef LOG
   printf("total triangles %ld\n", tct);
+  uint64_t kernel_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_vertex - start_vertex).count();
+
+  printf("Edge generation time (%u edges): %lu ns\n", edge, kernel_time);
+#endif
   delete[] index;
   delete[] edges;
 }

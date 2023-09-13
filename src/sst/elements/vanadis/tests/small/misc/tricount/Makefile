@@ -8,8 +8,11 @@ LDFLAGS=-static
 
 all: tricount_clean tricount_clean_preload tricount_clean_with_gen
 
-% : %.cc
+%_preload : %_preload.cc
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc
+
+% : %.cc
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $<
 
 clean:
 	rm -r $(PROG).$(ARCH)

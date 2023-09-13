@@ -35,10 +35,19 @@ if [ -L lutArrays.cc ]; then
 fi
 ln -s configs/input_$ARGS.cc lutArrays.cc
 
-# Build executable (second option for finer timing)
-make tricount_clean_preload
-#make CFLAGS=-DLOG tricount_clean_preload
+# Ensure output directory exists
+if [ ! -d "./outs/" ]; then
+  mkdir -p ./outs
+fi
+
 
 export VANADIS_EXE=$PWD/tricount_clean_preload.riscv64
 export VANADIS_EXE_ARGS=$ARGS
-time sst perlmutter.py
+
+# Build executable
+make tricount_clean_preload
+{ time sst perlmutter.py | tee outs/scaling_$2.out ; } 2> outs/time_scaling_$2.out
+
+# Build executable with logging and detailed timing
+#make CFLAGS=-DLOG tricount_clean_preload
+#{ time sst perlmutter.py ; } 2> outs/time_log_scaling_$2.out && mv stdout-100 outs/log_scaling_$2.out
