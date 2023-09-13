@@ -80,6 +80,37 @@ int main(int argc, char *argv[]) {
   printf("num_verticies %d\n", num_vertices);
   printf("num_edges %d\n",  edge);
 
+  // From https://stackoverflow.com/questions/60442391/c-how-to-store-large-binary-lookup-table-with-application/70850435#70850435
+  std::string headerName = filename + ".h";
+  std::ofstream hfile(headerName, std::ios::out);
+  hfile << "#include \"stdint.h\"" << std::endl;
+  hfile << "enum {" << std::endl;
+  hfile << "  indexSize = " << num_vertices + 1 << "," << std::endl;
+  hfile << "  edgeSize = " << edge << "," << std::endl;
+  hfile << "};" << std::endl;
+  hfile << "extern const uint64_t* g_pIndex;" << std::endl;
+  hfile << "extern const uint64_t* g_pEdges;" << std::endl;
+  hfile.close();
+
+  std::string ccName = filename + ".cc";
+  std::ofstream ccFile(ccName, std::ios::out);
+  ccFile << "#include \"lutArrays.h\"" << std::endl << std::endl;
+  ccFile << "const uint64_t g_index[indexSize] = {";
+  for (i = 0; i < num_vertices; i++) {
+    ccFile << index[i] << ", ";
+  }
+  ccFile << index[num_vertices] << "};" << std::endl;
+
+  ccFile << "const uint64_t g_edges[edgeSize] = {";
+  for (i = 0; i < edge - 1; i++) {
+    ccFile << edges[i] << ", ";
+  }
+  ccFile << edges[edge - 1] << "};" << std::endl << std::endl;
+
+  ccFile << "const uint64_t *g_pIndex = g_index;" << std::endl;
+  ccFile << "const uint64_t *g_pEdges = g_edges;" << std::endl;
+  ccFile.close();
+/*
   std::ofstream ofile(filename, std::ios::out | std::ios::binary);
   ofile << num_vertices + 1 << std::endl;
   for (i = 0; i < num_vertices + 1; i++) {
@@ -93,7 +124,7 @@ int main(int argc, char *argv[]) {
   }
   ofile << std::endl;
   ofile.close();
-
+*/
   delete[] index;
   delete[] edges;
 }

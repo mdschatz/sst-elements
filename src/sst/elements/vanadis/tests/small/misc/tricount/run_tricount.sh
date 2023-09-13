@@ -11,4 +11,5 @@ fi
 
 export VANADIS_EXE=$PWD/tricount_clean.riscv64
 export VANADIS_EXE_ARGS=$ARGS
-time sst tc_vanadis.py
+
+time sst perlmutter.py
