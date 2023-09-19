@@ -2,6 +2,7 @@
 #
 #
 
+CXXFLAGS += -fopenmp
 AM_CPPFLAGS += \
 	$(MPI_CPPFLAGS) \
 	-I$(top_srcdir)/src \
@@ -568,12 +569,11 @@ libvanadis_la_LDFLAGS = -module -avoid-version
 
 #libvanadisdbg_la_LDFLAGS = -module -avoid-version
 
-bin_PROGRAMS = sst-vanadis-tracediff tricount_clean tricount_clean_gen_only tricount_clean_with_gen tricount_clean_preload
+bin_PROGRAMS = sst-vanadis-tracediff tricount_clean_gen_only task_parallel task_serial
 
-tricount_clean_SOURCES = tests/small/misc/tricount/tricount_clean.cc
 tricount_clean_gen_only_SOURCES = tests/small/misc/tricount/tricount_clean_gen_only.cc
-tricount_clean_with_gen_SOURCES = tests/small/misc/tricount/tricount_clean_with_gen.cc
-tricount_clean_preload_SOURCES = tests/small/misc/tricount/tricount_clean_preload.cc tests/small/misc/tricount/lutArrays.cc
+task_parallel_SOURCES = tests/small/misc/tricount/task_parallel.cc tests/small/misc/tricount/taskUtil.cc tests/small/misc/tricount/lutArrays.cc
+task_serial_SOURCES = tests/small/misc/tricount/task_serial.cc tests/small/misc/tricount/taskUtil.cc tests/small/misc/tricount/lutArrays.cc
 sst_vanadis_tracediff_SOURCES = tools/tracediff/tracediff.cc
 
 #vanadisdbg.cc: vanadis.cc $(VANADIS_SRC_FILES)

@@ -3,13 +3,14 @@
 #include <random>
 #include <algorithm>
 #include <fstream>
+#include <vector>
 
 int main(int argc, char *argv[]) {
   uint64_t i, j;
   uint64_t tmp, src, dst, edge = 0, tct;
   int k, l, a, at, al, b, bt, bl;
 
-  if (argc != 8) {printf("Usage: <seed> <scale> <edge ratio> <A> <B> <C> <fname>\n"); return 1;}
+  if (argc != 9) {printf("Usage: <seed> <scale> <edge ratio> <A> <B> <C> <NL> <fname>\n"); return 1;}
 
   uint64_t seed = std::stoll(argv[1]);
   uint64_t scale = std::stoll(argv[2]);
@@ -21,7 +22,11 @@ int main(int argc, char *argv[]) {
   double C = std::stod(argv[6]) / 100.0;
   double D = 1.0 - A - B - C;
 
-  std::string filename(argv[7]);
+  uint64_t NL = std::stoll(argv[7]);
+  double quad = ( -1.0 + std::sqrt(1.0 + 4.0 * 12.0 * NL) ) / 2.0;
+  uint64_t NT = std::llround(quad);
+
+  std::string filename(argv[8]);
 
   std::mt19937_64 gen64(seed + num_edges);
   uint64_t max_rand = gen64.max();
@@ -80,6 +85,36 @@ int main(int argc, char *argv[]) {
   printf("num_verticies %d\n", num_vertices);
   printf("num_edges %d\n",  edge);
 
+  // Define rank tasks
+  // Algorithm adapted from SHAD reference implementation
+  uint64_t incr = (edge * 1.5) / NT;
+  uint64_t edge_target = incr;
+
+  uint64_t vertex=0;
+  uint64_t task = 1;
+  std::vector<uint64_t> tasks;
+  tasks.push_back(vertex);
+  for (uint64_t vertex = 0; vertex < num_vertices; ++vertex) {  // for each vertex
+
+    uint64_t vertex_start = index[vertex];
+
+    if (vertex_start < edge_target) continue;               // ... continue until edge target is reached
+    if (vertex > 0) tasks.push_back(vertex);               // ... else store start vertex for this task
+
+    uint64_t task_size = incr + (vertex_start - edge_target);
+
+    if (edge_target == edge) break;                 // ... all done
+
+    // incr reduces at 1/4 NT and 3/4 NT
+    if      ( task < std::llround(0.25 * NT) ) incr = (edge * 1.5) / NT;
+    else if ( task < std::llround(0.75 * NT) ) incr = (edge * 1.0) / NT;
+    else                                       incr = (edge * 0.5) / NT;
+
+    ++task;
+    edge_target = std::min(edge, vertex_start + incr);
+  }
+  tasks.push_back(num_vertices);
+
   // From https://stackoverflow.com/questions/60442391/c-how-to-store-large-binary-lookup-table-with-application/70850435#70850435
   std::string headerName = filename + ".h";
   std::ofstream hfile(headerName, std::ios::out);
@@ -87,9 +122,11 @@ int main(int argc, char *argv[]) {
   hfile << "enum {" << std::endl;
   hfile << "  indexSize = " << num_vertices + 1 << "," << std::endl;
   hfile << "  edgeSize = " << edge << "," << std::endl;
+  hfile << "  taskSize = " << tasks.size() << "," << std::endl;
   hfile << "};" << std::endl;
   hfile << "extern const uint64_t* g_pIndex;" << std::endl;
   hfile << "extern const uint64_t* g_pEdges;" << std::endl;
+  hfile << "extern const uint64_t* g_pTasks;" << std::endl;
   hfile.close();
 
   std::string ccName = filename + ".cc";
@@ -107,24 +144,17 @@ int main(int argc, char *argv[]) {
   }
   ccFile << edges[edge - 1] << "};" << std::endl << std::endl;
 
+  ccFile << "const uint64_t g_tasks[taskSize] = {";
+  for (i = 0; i < tasks.size() - 1; i++) {
+    ccFile << tasks[i] << ", ";
+  }
+  ccFile << tasks[tasks.size() - 1] << "};" << std::endl << std::endl;
+
   ccFile << "const uint64_t *g_pIndex = g_index;" << std::endl;
   ccFile << "const uint64_t *g_pEdges = g_edges;" << std::endl;
+  ccFile << "const uint64_t *g_pTasks = g_tasks;" << std::endl;
   ccFile.close();
-/*
-  std::ofstream ofile(filename, std::ios::out | std::ios::binary);
-  ofile << num_vertices + 1 << std::endl;
-  for (i = 0; i < num_vertices + 1; i++) {
-    ofile << index[i] << " ";
-  }
-  ofile << std::endl;
 
-  ofile << edge << std::endl;
-  for (i = 0; i < edge; i++) {
-    ofile << edges[i] << " ";
-  }
-  ofile << std::endl;
-  ofile.close();
-*/
   delete[] index;
   delete[] edges;
 }

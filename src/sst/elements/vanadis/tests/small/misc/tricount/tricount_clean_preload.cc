@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   uint64_t tmp, src, dst, tct;
   int k, l, a, at, al, b, bt, bl;
 
-  if (argc != 2) {printf("Usage: <fname>\n"); return 1;}
+  if (argc != 1) {printf("Usage: <>\n"); return 1;}
 
   uint64_t num_indices = indexSize;
   const uint64_t *index = g_pIndex;
@@ -22,30 +22,21 @@ int main(int argc, char *argv[]) {
 
   uint64_t num_vertices = num_indices - 1;
 
-#ifdef LOG
   printf("num_verticies %lu\n", num_vertices);
   printf("num_edges %lu\n",  edge);
-  // Timer values
 
-//  uint64_t *vertex_times = new uint64_t[num_vertices];
-//  uint64_t *task_times = new uint64_t[edgeSize];
+#ifdef LOG
+  // Timer values
   uint64_t task_num = 0;
   std::chrono::high_resolution_clock::time_point start_vertex, stop_vertex;
-//  std::chrono::high_resolution_clock::time_point start_task, stop_task;
 #endif
 
 #ifdef LOG
   start_vertex = std::chrono::high_resolution_clock::now();
-//  printf("starting loop\n");
-//  fflush(stdout);
 #endif
   // Count number of triangles
   tct = 0;
   for (i = 0; i < num_vertices; i++) {
-#ifdef LOG
-//    printf("Vertex: %d\n", i);
-//    fflush(stdout);
-#endif
 
     // going over all of the vertices: i is the vertex number
     at = index[i];
@@ -59,9 +50,6 @@ int main(int argc, char *argv[]) {
 
     // at is the pointer into the edges array for i
     for (j = at; j < al && j < edge; j++) {
-#ifdef LOG
-//      start_task = std::chrono::high_resolution_clock::now();
-#endif
       // Begin TASK
       // j is the pointer in the edges array for b, which is second vertex
       bt = index[edges[j]]; bl = index[edges[j]+1];
@@ -80,35 +68,16 @@ int main(int argc, char *argv[]) {
         }
       }
       // End TASK
-#ifdef LOG
-//      stop_task = std::chrono::high_resolution_clock::now();
-//      task_times[task_num++] = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_task - start_task).count();
-#endif
     }
-#ifdef LOG
-//    stop_vertex = std::chrono::high_resolution_clock::now();
-//    vertex_times[i] = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_vertex - start_vertex).count();
-#endif
   }
 #ifdef LOG
   stop_vertex = std::chrono::high_resolution_clock::now();
 #endif
-#ifdef LOG
+
   printf("total triangles %lu\n", tct);
 
-//  printf("%u vertex times (ns):", num_vertices);
-//  for(i = 0; i < num_vertices; i++) {
-//    printf(" %u", vertex_times[i]);
-//  }
-//  printf("\n");
-//  uint64_t total_time = 0;
-//  for(i = 0; i < task_num; i++) {
-//    total_time += task_times[i];
-//  }
+#ifdef LOG
   uint64_t kernel_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_vertex - start_vertex).count();
   printf("Average task time (%u tasks): %.6f ns\n", edge, 1.0 * kernel_time / edge);
-
-//  delete[] vertex_times;
-//  delete[] task_times;
 #endif
 }

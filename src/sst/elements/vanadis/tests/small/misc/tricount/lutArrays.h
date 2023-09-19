@@ -5,6 +5,8 @@
 enum {
   indexSize = 3,
   edgeSize = 1,
+  taskSize = 2,
 };
 extern const uint64_t* g_pIndex;
 extern const uint64_t* g_pEdges;
+extern const uint64_t* g_pTasks;
