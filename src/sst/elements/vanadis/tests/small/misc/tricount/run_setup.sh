@@ -1,9 +1,4 @@
-#!/bin/bash
-
-TARGET=task_serial
-TASK_ARGS="$1_$2_$3_$4_$5_$6_$7"
-HFILE=configs/input_$TASK_ARGS.h
-CCFILE=configs/input_$TASK_ARGS.cc
+# NOTE: Intended as helper script to bundle common routines
 
 # Remove initial template file if they exist
 if [ -f lutArrays.h ] && [ ! -L lutArrays.h ]; then
@@ -40,16 +35,3 @@ ln -s configs/input_$TASK_ARGS.cc lutArrays.cc
 if [ ! -d "./outs/" ]; then
   mkdir -p ./outs
 fi
-
-
-export VANADIS_EXE=$PWD/$TARGET.riscv64
-export VANADIS_EXE_ARGS=${@: 8}
-echo ${VANADIS_EXE_ARGS}
-# Build executable
-make $TARGET
-#{ time sst perlmutter.py | tee outs/scaling_$2.out ; } 2> outs/time_scaling_$2.out
-time sst perlmutter.py
-
-# Build executable with logging and detailed timing
-#make CFLAGS=-DLOG tricount_clean_preload
-#{ time sst perlmutter.py ; } 2> outs/time_log_scaling_$2.out && mv stdout-100 outs/log_scaling_$2.out

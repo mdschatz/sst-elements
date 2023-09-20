@@ -1,23 +1,19 @@
 #!/bin/bash
 
-TARGET=tricount_clean_$1
-ARGS="$2_$3_$4_$5_$6_$7"
-HFILE=configs/input_$ARGS.h
-CCFILE=configs/input_$ARGS.cc
+TARGET=task_$1
+TASK_ARGS="$2_$3_$4_$5_$6_$7_$8"
+HFILE=configs/input_$TASK_ARGS.h
+CCFILE=configs/input_$TASK_ARGS.cc
 
-if [ $1 = "preload" ]; then
-  ARG_IND=2
-elif [ $1 = "with_gen" ]; then
-  ARG_IND=8
-else
-  echo "Unrecognized option. Available options: preload, with_gen"
+if [ ! $1 = "serial" ] && [ ! $1 = "parallel" ]; then
+  echo "Unrecognized option. Available options: serial, parallel"
   exit
 fi
 
 . run_setup.sh
 
 export VANADIS_EXE=$PWD/$TARGET.riscv64
-export VANADIS_EXE_ARGS=${@: ${ARG_IND}}
+export VANADIS_EXE_ARGS=${@: 9}
 
 # Build executable
 make $TARGET && { time sst perlmutter.py | tee outs/$1_scaling_$2.out ; } 2> outs/time_$1_scaling_$2.out
