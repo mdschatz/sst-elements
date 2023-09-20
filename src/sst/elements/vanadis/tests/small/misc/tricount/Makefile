@@ -6,12 +6,15 @@ CFLAGS:=$(CFLAGS) -O3 -fopenmp
 CXXFLAGS=-O3
 LDFLAGS=-static
 
-all: tricount_clean tricount_clean_preload tricount_clean_with_gen task_parallel
+all: tricount_clean tricount_clean_preload tricount_clean_with_gen task_parallel task_serial
 
 %_preload : %_preload.cc
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc
 
 %_parallel : %_parallel.cc
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc
+
+%_serial : %_serial.cc
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc
 
 % : %.cc
