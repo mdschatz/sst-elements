@@ -24,11 +24,13 @@ fi
 if [ -L lutArrays.h ]; then
   unlink lutArrays.h
 fi
+touch configs/input_$TASK_ARGS.h
 ln -s configs/input_$TASK_ARGS.h lutArrays.h
 
 if [ -L lutArrays.cc ]; then
   unlink lutArrays.cc
 fi
+touch configs/input_$TASK_ARGS.h
 ln -s configs/input_$TASK_ARGS.cc lutArrays.cc
 
 # Ensure output directory exists
