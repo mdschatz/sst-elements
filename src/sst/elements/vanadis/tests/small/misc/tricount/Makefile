@@ -11,8 +11,8 @@ all: tricount_clean_preload tricount_clean_with_gen task_parallel task_serial
 %_preload : %_preload.cc
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc
 
-task_% : task_%.cc
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc
+task_% : task_%.cc taskUtil.cc
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $< lutArrays.cc taskUtil.cc
 
 % : %.cc
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@.$(ARCH) $<
