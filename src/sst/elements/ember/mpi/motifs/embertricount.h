@@ -58,6 +58,8 @@ public:
   void edges_to_ranks(uint64_t first_edge, uint64_t last_edge, std::map<uint64_t,uint64_t>& rank_to_size);
   void test_send_requests();
   void wait_send_requests();
+  void get_part_info(uint64_t i, uint64_t &first_i, uint64_t &last_i, uint64_t &first_edge, uint64_t &last_edge);
+  void perform_task(bool request_remote);
 
 private:
   enum {TASK_REQUEST, TASK_ASSIGN, TASK_NULL, TASKS_COMPLETE, DATA_REQUEST, DATA};
@@ -74,6 +76,8 @@ private:
   uint64_t maxTask_;
   uint64_t old_i_;
   uint64_t old_j_;
+  uint64_t cur_i_;
+  uint64_t cur_j_;
   std::vector<uint64_t> Vertices_;
   std::vector<uint64_t> first_edges_;
   std::vector<uint64_t> taskStarts_;

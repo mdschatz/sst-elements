@@ -53,7 +53,7 @@ using namespace SST::Ember;
 
 EmberTriCountGenerator::EmberTriCountGenerator(SST::ComponentId_t id, Params& prms):
   EmberMessagePassingGenerator(id, prms, "Null" ), params_(prms), debug_(0), generate_loop_index_(0), need_to_wait_(false),
-  next_task_(0), old_i_(ULLONG_MAX), old_j_(ULLONG_MAX), num_data_ranks_(0), request_index_(-1), num_data_received_(0), num_end_messages_(0),
+  next_task_(0), old_i_(ULLONG_MAX), old_j_(ULLONG_MAX), cur_i_(ULLONG_MAX), cur_j_(ULLONG_MAX), num_data_ranks_(0), request_index_(-1), num_data_received_(0), num_end_messages_(0),
   free_data_requests_(false), free_datareq_buffers_(false), send_request_flag_(false), send_request_array_(nullptr), test_sends_(false)
 {
   rank_ = EmberMessagePassingGenerator::rank();
@@ -340,72 +340,10 @@ EmberTriCountGenerator::task_client() {
     // Algorithm adapted from SHAD reference implementation
 
     // compute task indices
-    uint64_t i = NT_ - 1 - (uint64_t) (sqrt(-8 * task + 4 * (NT_ + 1) * NT_ - 7) / 2.0 - 0.5);
-    uint64_t j = task + i - ((NT_ + 1) * NT_ / 2) + ((NT_ + 1 - i) * (NT_ - i) / 2);
-    if (debug_ > 1) {
-      std::cerr << "i: " << i << std::endl;
-      std::cerr << "j: " << j << std::endl;
-    }
+    cur_i_ = NT_ - 1 - (uint64_t) (sqrt(-8 * task + 4 * (NT_ + 1) * NT_ - 7) / 2.0 - 0.5);
+    cur_j_ = task + cur_i_ - ((NT_ + 1) * NT_ / 2) + ((NT_ + 1 - cur_i_) * (NT_ - cur_i_) / 2);
 
-    uint64_t first_i, last_i, first_j, last_j, first_edge, last_edge;
-    bool skip = false;
-    if (i > taskStarts_.size() || j > taskStarts_.size() ) skip = true;
-    if (taskStarts_[i] == num_vertices_ - 1 || taskStarts_[j] == num_vertices_ - 1) {
-      skip = true;
-      if (debug_) {
-        std::cerr << "skipping last vertex task (which never holds unique edges)\n";
-      }
-    }
-    if (i != old_i_ && !skip) {
-       old_i_   = i;
-       first_i = taskStarts_[i];      // first vertex of partition i
-       last_i  = taskStarts_[i + 1];  // first vertex of partition i + 1
-       if (do_constant_degree_) {
-         first_edge = first_i * constant_degree_;
-         last_edge = last_i * constant_degree_;
-       }
-       else {
-         first_edge = Vertices_[first_i];
-         last_edge = Vertices_[last_i];
-       }
-       if (first_edge != last_edge) --last_edge;
-       if (debug_ > 2) {
-         std::cerr << "first_i     : " << first_i << std::endl;
-         std::cerr << "last_i      : " << last_i << std::endl;
-         std::cerr << "i first_edge: " << first_edge << std::endl;
-         std::cerr << "i last_edge : " << last_edge << std::endl;
-       }
-       request_edges( first_edge, last_edge );
-    }
-
-    if ((j != old_j_) && (j != i) && !skip) {
-       old_j_   = j;
-       first_j = taskStarts_[j];         // first vertex of partition j
-       last_j  = taskStarts_[j + 1];     // first vertex of partition j + 1
-       if (do_constant_degree_) {
-         first_edge = first_j * constant_degree_;
-         last_edge = last_j * constant_degree_;
-       }
-       else {
-         first_edge = Vertices_[first_j];
-         last_edge = Vertices_[last_j];
-       }
-       if (first_edge != last_edge) --last_edge;
-       if (debug_ > 2) {
-         std::cerr << "first_j     : " << first_j << std::endl;
-         std::cerr << "last_j      : " << last_j << std::endl;
-         std::cerr << "j first_edge: " << first_edge << std::endl;
-         std::cerr << "j last_edge : " << last_edge << std::endl;
-       }
-       request_edges( first_edge, last_edge );
-    }
-    if (num_data_ranks_ == 0) { // all data is local, compute
-      if (debug_) std::cerr << "all data is local, computing\n";
-      //enQ_compute(evQ, 1000); // FIXME: need model of compute times
-      request_task();
-      // make send requests go away
-      test_sends_ = true;
-    }
+    perform_task(true);
   }
 
   // test if data is back
@@ -418,10 +356,8 @@ EmberTriCountGenerator::task_client() {
       num_data_ranks_ = 0;
       num_data_received_ = 0;
       free_data_requests_ = true;
-      //enQ_compute(evQ, 1000); // FIXME: need model of compute times
-      request_task();
-      // make send requests go away
-      test_sends_ = true;
+
+      perform_task(false);
     }
     else {
       wait_for_any();
@@ -602,4 +538,87 @@ EmberTriCountGenerator::wait_send_requests() {
      datareq_send_requests_.pop_back();
    }
    enQ_waitall( evQ, size, send_request_array_);
+}
+
+void
+EmberTriCountGenerator::get_part_info(uint64_t i, uint64_t &first_i, uint64_t &last_i, uint64_t &first_edge, uint64_t &last_edge) {
+  first_i = taskStarts_[i];      // first vertex of partition i
+  last_i  = taskStarts_[i + 1];  // first vertex of partition i + 1
+  if (do_constant_degree_) {
+    first_edge = first_i * constant_degree_;
+    last_edge = last_i * constant_degree_;
+  }
+  else {
+    first_edge = Vertices_[first_i];
+    last_edge = Vertices_[last_i];
+  }
+  if (first_edge != last_edge) --last_edge;
+}
+
+void
+EmberTriCountGenerator::perform_task(bool request_remote) {
+  std::queue<EmberEvent*>& evQ = *evQ_;
+
+  uint64_t i = cur_i_;
+  uint64_t j = cur_j_;
+
+  if (debug_ > 1) {
+    std::cerr << "i: " << i << std::endl;
+    std::cerr << "j: " << j << std::endl;
+  }
+
+  uint64_t first_i, last_i, first_j, last_j, first_edge, last_edge;
+  bool skip = false;
+  if (i > taskStarts_.size() || j > taskStarts_.size() ) skip = true;
+  if (taskStarts_[i] == num_vertices_ - 1 || taskStarts_[j] == num_vertices_ - 1) {
+    skip = true;
+    if (debug_) {
+      std::cerr << "skipping last vertex task (which never holds unique edges)\n";
+    }
+  }
+
+  // Determine partition pointers
+  get_part_info(i, first_i, last_i, first_edge, last_edge);
+  if (debug_ > 2) {
+    std::cerr << "first_i     : " << first_i << std::endl;
+    std::cerr << "last_i      : " << last_i << std::endl;
+    std::cerr << "i first_edge: " << first_edge << std::endl;
+    std::cerr << "i last_edge : " << last_edge << std::endl;
+  }
+
+  // Request any remote I edges if needed
+  if (i != old_i_ && !skip) {
+    old_i_   = i;
+    if (request_remote) request_edges( first_edge, last_edge );
+  }
+
+  // Determine J partition pointers
+  get_part_info(j, first_j, last_j, first_edge, last_edge);
+  if (debug_ > 2) {
+    std::cerr << "first_j     : " << first_j << std::endl;
+    std::cerr << "last_j      : " << last_j << std::endl;
+    std::cerr << "j first_edge: " << first_edge << std::endl;
+    std::cerr << "j last_edge : " << last_edge << std::endl;
+  }
+
+  // Request any remote J edges if needed
+  if (j != old_j_ && !skip) {
+     old_j_   = j;
+     if (j != i && request_remote) request_edges( first_edge, last_edge );
+  }
+  // if ((j != i) && num_data_ranks_ == 0) { // all data is local, compute
+  if (num_data_ranks_ == 0) { // all data is local, compute
+    if (debug_) std::cerr << "all data is local, computing\n";
+
+
+    // Asymptotic model based on forward algorithm for triangle-counting
+    const uint64_t compute_const = 100;  // NOTE: Replace with parameter
+    const uint64_t num_i_edges = Vertices_[last_i] - Vertices_[first_i];
+    const uint64_t num_j_edges = Vertices_[last_j] - Vertices_[first_j];
+    enQ_compute(evQ, compute_const * pow(num_i_edges + num_j_edges, 3.0 / 2));
+
+    request_task();
+    // make send requests go away
+    test_sends_ = true;
+  }
 }
