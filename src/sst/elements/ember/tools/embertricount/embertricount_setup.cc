@@ -76,34 +76,42 @@ void RMAT(const RMAT_args_t & args, uint64_t ndx) {
   }
 }
 
-int64_t expected_degree(const RMAT_args_t &rmat_args, uint64_t target_edges, int64_t vertex) {
-    int nzeros = 0;
-    for (int b = 0; b < rmat_args.scale; b++) {
-      nzeros += vertex & 1;
-      vertex >>= 1;
-    }
-    return (int64_t)(target_edges * pow(rmat_args.A + rmat_args.B, nzeros) * pow(rmat_args.C + rmat_args.D, rmat_args.scale - nzeros));
-}
-
+// Returns number of generated edges
 // NOTE: Vertices.size() set to num_vertices by caller
 uint64_t gen_implicit(const RMAT_args_t &rmat_args, uint64_t target_edges, std::vector<int64_t> &Vertices) {
+  // Create expected out-degree distribution
+  // Num-zeros in vertex-id binary representation -> Expected out-degree
+  std::vector<int64_t> expected_degree(rmat_args.scale + 1);
+  for (int64_t nz = 0; nz < expected_degree.size(); nz++) {
+    expected_degree[nz] = (int64_t)(target_edges * pow(rmat_args.A + rmat_args.B, nz) * pow(rmat_args.C + rmat_args.D, rmat_args.scale - nz));
+  }
+
+  // Sample from created expected degree distribution and assign to vertices
+  std::mt19937_64 gen64(rmat_args.seed);
+  std::binomial_distribution<int> binom_dist(rmat_args.scale, 0.5);
+  int64_t x_rand = 0;
   Vertices[0] = 0;
   for (int64_t i = 0; i < Vertices.size() - 1; i++) {
-    Vertices[i+1] = Vertices[i] + expected_degree(rmat_args, target_edges, i);
+    x_rand = binom_dist(gen64);
+    Vertices[i+1] = Vertices[i] + expected_degree[x_rand];
   }
-  return Vertices[Vertices.size() - 1] + expected_degree(rmat_args, target_edges, Vertices.size() - 1);
+
+  x_rand = binom_dist(gen64);
+  return Vertices[Vertices.size() - 1] + expected_degree[x_rand];
 }
 
+// Returns number of generated edges
 // NOTE: Vertices.size() set to num_vertices by caller
+// NOTE: Implementation corrected to include edges of last vertex
 uint64_t gen_explicit(const RMAT_args_t &rmat_args, uint64_t target_edges, std::vector<int64_t> &Vertices) {
-  uint64_t num_edges = 0;
+  // uint64_t num_edges = 0;
   for (int i=0; i<target_edges; ++i)
     RMAT(rmat_args,i);
 
   // Compute total number of edges
-  for (auto& it: edges) {
-    num_edges += it.second.size();
-  }
+  // for (auto& it: edges) {
+  //   num_edges += it.second.size();
+  // }
 
 //  for (auto& it: edges) {
 //    std::cout << it.first;
@@ -118,7 +126,8 @@ uint64_t gen_explicit(const RMAT_args_t &rmat_args, uint64_t target_edges, std::
     Vertices[i] = Vertices[i-1] + edges[i-1].size();
   }
 
-  return num_edges;
+  return Vertices[Vertices.size() - 1] + edges[Vertices.size() - 1].size();
+  // return num_edges;
 }
 
 int main(int argc, char **argv){
