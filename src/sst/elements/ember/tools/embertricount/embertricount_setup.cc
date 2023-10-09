@@ -76,26 +76,27 @@ void RMAT(const RMAT_args_t & args, uint64_t ndx) {
   }
 }
 
-int main(int argc, char **argv){
-  if (argc != 8) {printf("Usage: <seed> <scale> <edge ratio> <A> <B> <C> <filename>\n"); return 1;}
+int64_t expected_degree(const RMAT_args_t &rmat_args, uint64_t target_edges, int64_t vertex) {
+    int nzeros = 0;
+    for (int b = 0; b < rmat_args.scale; b++) {
+      nzeros += vertex & 1;
+      vertex >>= 1;
+    }
+    return (int64_t)(target_edges * pow(rmat_args.A + rmat_args.B, nzeros) * pow(rmat_args.C + rmat_args.D, rmat_args.scale - nzeros));
+}
 
-  uint64_t seed = std::stoll(argv[1]);
-  uint64_t scale = std::stoll(argv[2]);
-  uint64_t num_vertices = 1 << std::stoll(argv[2]);
-  uint64_t target_edges = num_vertices * std::stoll(argv[3]);
+// NOTE: Vertices.size() set to num_vertices by caller
+uint64_t gen_implicit(const RMAT_args_t &rmat_args, uint64_t target_edges, std::vector<int64_t> &Vertices) {
+  Vertices[0] = 0;
+  for (int64_t i = 0; i < Vertices.size() - 1; i++) {
+    Vertices[i+1] = Vertices[i] + expected_degree(rmat_args, target_edges, i);
+  }
+  return Vertices[Vertices.size() - 1] + expected_degree(rmat_args, target_edges, Vertices.size() - 1);
+}
+
+// NOTE: Vertices.size() set to num_vertices by caller
+uint64_t gen_explicit(const RMAT_args_t &rmat_args, uint64_t target_edges, std::vector<int64_t> &Vertices) {
   uint64_t num_edges = 0;
-  std::string filename(argv[7]);
-
-  double A = std::stod(argv[4]) / 100.0;
-  double B = std::stod(argv[5]) / 100.0;
-  double C = std::stod(argv[6]) / 100.0;
-  double D = 1.0 - A - B - C;
-
-  if ( (A <= 0.0) || (B <= 0.0) || (C <= 0.0) || (A + B + C >= 1.0) )
-     {printf("sector probablities must be greater than 0.0 and sum to 1.0\n"); return 1;}
-
-  RMAT_args_t rmat_args = {seed, scale, A, B, C, D};
-
   for (int i=0; i<target_edges; ++i)
     RMAT(rmat_args,i);
 
@@ -112,10 +113,41 @@ int main(int argc, char **argv){
 //  }
 
   // Set Vertices[i] to start index of vertex i's edges
-  std::vector<int64_t> Vertices(num_vertices);
   Vertices[0]=0;
-  for (int i=1; i<num_vertices; ++i) {
+  for (int i=1; i<Vertices.size(); ++i) {
     Vertices[i] = Vertices[i-1] + edges[i-1].size();
+  }
+
+  return num_edges;
+}
+
+int main(int argc, char **argv){
+  if (argc != 8 && argc != 9) {printf("Usage: <seed> <scale> <edge ratio> <A> <B> <C> <filename> <?implicit_generation>\n"); return 1;}
+
+  uint64_t seed = std::stoll(argv[1]);
+  uint64_t scale = std::stoll(argv[2]);
+  uint64_t num_vertices = 1 << std::stoll(argv[2]);
+  uint64_t target_edges = num_vertices * std::stoll(argv[3]);
+  uint64_t num_edges = 0;
+  std::string filename(argv[7]);
+  bool     implicit_gen = argc == 9 && argv[8] > 0;
+
+
+  double A = std::stod(argv[4]) / 100.0;
+  double B = std::stod(argv[5]) / 100.0;
+  double C = std::stod(argv[6]) / 100.0;
+  double D = 1.0 - A - B - C;
+
+  if ( (A <= 0.0) || (B <= 0.0) || (C <= 0.0) || (A + B + C >= 1.0) )
+     {printf("sector probablities must be greater than 0.0 and sum to 1.0\n"); return 1;}
+
+
+  RMAT_args_t rmat_args = {seed, scale, A, B, C, D};
+  std::vector<int64_t> Vertices(num_vertices);
+  if (implicit_gen) {
+    num_edges = gen_implicit(rmat_args, target_edges, Vertices);
+  } else {
+    num_edges = gen_explicit(rmat_args, target_edges, Vertices);
   }
 
   std::ofstream outfile;
